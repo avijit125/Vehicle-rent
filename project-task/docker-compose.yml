@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/rental
+      REDIS_URL: redis://redis_db:6379
+      JWT_SECRET: jwt_secret
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+      - redis_db
+    command: ["sh","-c","npx tsc && npx prisma generate && npx prisma migrate deploy && npx ts-node prisma/seed.ts && node dist/app.js"]
+    networks:
+      - default
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      REACT_APP_API_URL: "http://127.0.0.1:5000/api"
+    volumes:
+      - ./frontend:/app
+    command: ["npm", "start"]
+    networks:
+      - default
+
+  db:
+    image: postgres:14
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rental
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - default
+
+  redis_db:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - default
+
+volumes:
+  postgres_data:
+  redis_data:
